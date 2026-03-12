@@ -44,7 +44,10 @@ class StudioViewModel @Inject constructor(
     var ttsText by mutableStateOf("")
         private set
 
-    var voiceSampleUrl by mutableStateOf("")
+    var voiceSampleLocalUri by mutableStateOf<String?>(null)
+        private set
+
+    var voiceSampleRemoteUrl by mutableStateOf<String?>(null)
         private set
 
     var clonedVoiceUrl by mutableStateOf<String?>(null)
@@ -68,8 +71,12 @@ class StudioViewModel @Inject constructor(
         ttsText = value
     }
 
-    fun onVoiceSampleUrlChanged(value: String) {
-        voiceSampleUrl = value
+    fun onVoiceSampleLocalUriChanged(value: String?) {
+        voiceSampleLocalUri = value
+    }
+
+    fun onVoiceSampleRemoteUrlChanged(value: String?) {
+        voiceSampleRemoteUrl = value
     }
 
     fun generateLyrics() {
@@ -197,8 +204,9 @@ class StudioViewModel @Inject constructor(
     }
 
     fun cloneVoiceSample() {
-        if (voiceSampleUrl.isBlank()) {
-            statusMessage = "Enter a voice sample URL to clone."
+        val sampleUrl = voiceSampleRemoteUrl ?: voiceSampleLocalUri
+        if (sampleUrl.isNullOrBlank()) {
+            statusMessage = "Provide a voice sample (URL or uploaded file) to clone."
             return
         }
 
@@ -207,7 +215,7 @@ class StudioViewModel @Inject constructor(
             statusMessage = null
 
             clonedVoiceUrl = try {
-                aiService.cloneVoice(voiceSampleUrl)
+                aiService.cloneVoice(sampleUrl)
             } catch (t: Throwable) {
                 statusMessage = "Failed to clone voice: ${t.message}"
                 null
@@ -218,6 +226,41 @@ class StudioViewModel @Inject constructor(
                 audioPlayerService.play(url)
             }
 
+            isLoading = false
+        }
+    }
+
+    fun uploadVoiceSample(uriString: String) {
+        if (uriString.isBlank()) {
+            statusMessage = "No sample URI provided."
+            return
+        }
+
+        viewModelScope.launch {
+            isLoading = true
+            statusMessage = null
+            voiceSampleLocalUri = uriString
+
+            val bytes = try {
+                context.contentResolver.openInputStream(android.net.Uri.parse(uriString))?.use { it.readBytes() }
+            } catch (t: Throwable) {
+                null
+            }
+
+            if (bytes == null) {
+                statusMessage = "Failed to read voice sample."
+                isLoading = false
+                return@launch
+            }
+
+            val uploadedUrl = uploadBytesToSupabase(
+                bytes,
+                "voice_samples",
+                "samples/${UUID.randomUUID()}.mp3"
+            )
+
+            voiceSampleRemoteUrl = uploadedUrl
+            statusMessage = if (uploadedUrl != null) "Voice sample uploaded." else "Upload failed."
             isLoading = false
         }
     }

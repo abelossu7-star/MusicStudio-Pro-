@@ -16,6 +16,8 @@ import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +31,9 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
     val beatUrl = viewModel.beatUrl
     val voiceId = viewModel.voiceId
     val ttsText = viewModel.ttsText
+    val voiceSampleLocalUri = viewModel.voiceSampleLocalUri
+    val voiceSampleRemoteUrl = viewModel.voiceSampleRemoteUrl
+    val clonedVoiceUrl = viewModel.clonedVoiceUrl
     val statusMessage = viewModel.statusMessage
     val isLoading = viewModel.isLoading
 
@@ -97,15 +102,29 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
         Spacer(modifier = Modifier.size(8.dp))
 
         Text(text = "Voice cloning")
-        OutlinedTextField(
-            value = voiceSampleUrl,
-            onValueChange = viewModel::onVoiceSampleUrlChanged,
-            label = { Text("Voice sample URL") },
-            modifier = Modifier.fillMaxWidth()
-        )
+
+        val pickAudioLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri ->
+            uri?.let { viewModel.uploadVoiceSample(it.toString()) }
+        }
+
+        Button(onClick = { pickAudioLauncher.launch("audio/*") }, modifier = Modifier.fillMaxWidth()) {
+            Text(text = "Pick voice sample")
+        }
+
+        voiceSampleLocalUri?.let {
+            Text(text = "Selected sample: $it")
+        }
+
+        voiceSampleRemoteUrl?.let {
+            Text(text = "Uploaded sample URL: $it")
+        }
+
         Button(onClick = viewModel::cloneVoiceSample, modifier = Modifier.fillMaxWidth()) {
             Text(text = "Clone Voice")
         }
+
         clonedVoiceUrl?.let {
             Text(text = "Cloned voice URL: $it")
         }
