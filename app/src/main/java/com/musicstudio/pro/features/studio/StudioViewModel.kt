@@ -44,6 +44,12 @@ class StudioViewModel @Inject constructor(
     var ttsText by mutableStateOf("")
         private set
 
+    var voiceSampleUrl by mutableStateOf("")
+        private set
+
+    var clonedVoiceUrl by mutableStateOf<String?>(null)
+        private set
+
     var statusMessage by mutableStateOf<String?>(null)
         private set
 
@@ -60,6 +66,10 @@ class StudioViewModel @Inject constructor(
 
     fun onTtsTextChanged(value: String) {
         ttsText = value
+    }
+
+    fun onVoiceSampleUrlChanged(value: String) {
+        voiceSampleUrl = value
     }
 
     fun generateLyrics() {
@@ -180,6 +190,32 @@ class StudioViewModel @Inject constructor(
                 statusMessage = "Song created: ${it.audioUrl}"
             }?.onFailure {
                 statusMessage = "Failed to save song metadata: ${it.message}"
+            }
+
+            isLoading = false
+        }
+    }
+
+    fun cloneVoiceSample() {
+        if (voiceSampleUrl.isBlank()) {
+            statusMessage = "Enter a voice sample URL to clone."
+            return
+        }
+
+        viewModelScope.launch {
+            isLoading = true
+            statusMessage = null
+
+            clonedVoiceUrl = try {
+                aiService.cloneVoice(voiceSampleUrl)
+            } catch (t: Throwable) {
+                statusMessage = "Failed to clone voice: ${t.message}"
+                null
+            }
+
+            clonedVoiceUrl?.let { url ->
+                statusMessage = "Cloned voice ready to play."
+                audioPlayerService.play(url)
             }
 
             isLoading = false

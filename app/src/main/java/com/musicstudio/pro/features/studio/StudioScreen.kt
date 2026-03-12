@@ -3,6 +3,7 @@ package com.musicstudio.pro.features.studio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -91,6 +92,22 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
 
         Button(onClick = viewModel::synthesizeVoice, modifier = Modifier.fillMaxWidth()) {
             Text(text = "Synthesize & Play")
+        }
+
+        Spacer(modifier = Modifier.size(8.dp))
+
+        Text(text = "Voice cloning")
+        OutlinedTextField(
+            value = voiceSampleUrl,
+            onValueChange = viewModel::onVoiceSampleUrlChanged,
+            label = { Text("Voice sample URL") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(onClick = viewModel::cloneVoiceSample, modifier = Modifier.fillMaxWidth()) {
+            Text(text = "Clone Voice")
+        }
+        clonedVoiceUrl?.let {
+            Text(text = "Cloned voice URL: $it")
         }
 
         statusMessage?.let {
