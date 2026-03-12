@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+
+# Local configuration
+local.properties
+
+# Android Studio
+*.iml
+.idea/
+.idea/*
+.DS_Store
+
+# Kotlin/Java
+*.class
+
+# Packaging
+*.apk
+*.ap_ 
+
+# Logs
+*.log
+
+# Kotlin daemon
+.gradle/

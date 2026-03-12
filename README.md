@@ -257,6 +257,20 @@ recommendation_service
 viewmodels
 
 ========================================================
+CONFIGURATION
+
+1) Create a `local.properties` file in the project root (it is ignored by git in this repo).
+2) Add your secrets (do NOT commit this file):
+
+```properties
+supabase.url=https://<your-project>.supabase.co
+supabase.key=<your-supabase-anon-key>
+elevenlabs.key=<your-elevenlabs-api-key>
+```
+
+3) Rebuild the app. The keys are injected into `BuildConfig` via Gradle and are accessible from Kotlin code.
+
+========================================================
 SUPABASE DATABASE SCHEMA
 
 Enable extension
