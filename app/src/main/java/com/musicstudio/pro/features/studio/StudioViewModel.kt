@@ -67,6 +67,9 @@ class StudioViewModel @Inject constructor(
     var isLoading by mutableStateOf(false)
         private set
 
+    var isPlaying by mutableStateOf(false)
+        private set
+
     fun onPromptChanged(value: String) {
         prompt = value
     }
@@ -272,11 +275,33 @@ class StudioViewModel @Inject constructor(
 
             clonedVoiceUrl?.let { url ->
                 statusMessage = "Cloned voice ready to play."
-                audioPlayerService.play(url)
+                playUrl(url)
             }
 
             isLoading = false
         }
+    }
+
+    fun playRecording() {
+        val uri = recordedFileUri ?: return
+        playUrl(uri)
+    }
+
+    fun playClonedVoice() {
+        val uri = clonedVoiceUrl ?: return
+        playUrl(uri)
+    }
+
+    fun stopPlayback() {
+        audioPlayerService.stop()
+        isPlaying = false
+        statusMessage = "Playback stopped."
+    }
+
+    private fun playUrl(url: String) {
+        audioPlayerService.play(url)
+        isPlaying = true
+        statusMessage = "Playing..."
     }
 
     fun uploadVoiceSample(uriString: String) {

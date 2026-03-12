@@ -123,6 +123,20 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
 
         recordedFileUri?.let {
             Text(text = "Recorded file: $it")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { viewModel.playRecording() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = "Play" )
+                }
+                Button(
+                    onClick = { viewModel.stopPlayback() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = "Stop")
+                }
+            }
             Button(
                 onClick = { viewModel.uploadVoiceSample(it) },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
@@ -152,6 +166,14 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
 
         clonedVoiceUrl?.let {
             Text(text = "Cloned voice URL: $it")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = viewModel::playClonedVoice, modifier = Modifier.weight(1f)) {
+                    Text(text = "Play")
+                }
+                Button(onClick = viewModel::stopPlayback, modifier = Modifier.weight(1f)) {
+                    Text(text = "Stop")
+                }
+            }
         }
 
         statusMessage?.let {
