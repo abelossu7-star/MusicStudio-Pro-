@@ -132,6 +132,41 @@ class StudioViewModel @Inject constructor(
         beatUrl?.let { audioPlayerService.play(it) }
     }
 
+    fun synthesizeVoice() {
+        if (voiceId.isBlank() || ttsText.isBlank()) {
+            statusMessage = "Provide a voice ID and text to synthesize."
+            return
+        }
+
+        viewModelScope.launch {
+            isLoading = true
+            statusMessage = null
+
+            val bytes = try {
+                elevenLabsService.synthesizeSpeech(voiceId, ttsText)
+            } catch (t: Throwable) {
+                statusMessage = "Failed to synthesize voice: ${t.message}"
+                null
+            }
+
+            val fileUri = bytes?.let {
+                val file = writeBytesToCache(it, "synthesized_${UUID.randomUUID()}.mp3")
+                file?.let { Uri.fromFile(it).toString() }
+            }
+
+            if (fileUri.isNullOrBlank()) {
+                statusMessage = statusMessage ?: "Voice synthesis failed."
+                isLoading = false
+                return@launch
+            }
+
+            clonedVoiceUrl = fileUri
+            statusMessage = "Voice synthesized."
+            playUrl(fileUri)
+            isLoading = false
+        }
+    }
+
     fun generateSong() {
         if (prompt.isBlank()) {
             statusMessage = "Enter a prompt to generate a song."

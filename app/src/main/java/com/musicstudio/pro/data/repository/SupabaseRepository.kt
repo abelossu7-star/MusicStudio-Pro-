@@ -192,4 +192,21 @@ class SupabaseRepository(private val service: SupabaseService) {
             emit(Result.failure(e))
         }
     }
+
+    fun updateUserProfile(userId: String, username: String?, bio: String?, profileImage: String?): Flow<Result<User>> = flow {
+        try {
+            val payload = mapOf(
+                "username" to username,
+                "bio" to bio,
+                "profile_image" to profileImage
+            ).filterValues { it != null }
+
+            val response = service.database.from("users").update(payload).eq("id", userId).single().execute()
+            val updatedUser = response.decode<User>()
+            emit(Result.success(updatedUser))
+        } catch (e: Exception) {
+            AppLog.e("updateUserProfile", e)
+            emit(Result.failure(e))
+        }
+    }
 }

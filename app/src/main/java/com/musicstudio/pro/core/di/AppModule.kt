@@ -70,4 +70,10 @@ object AppModule {
     fun provideMediaCompressionService(): MediaCompressionService {
         return MediaCompressionService()
     }
+
+    @Provides
+    @Singleton
+    fun provideRecommendationService(): com.musicstudio.pro.services.recommendation.RecommendationService {
+        return com.musicstudio.pro.services.recommendation.RecommendationService()
+    }
 }
