@@ -1,6 +1,8 @@
 package com.musicstudio.pro.features.studio
 
 import android.content.Context
+import android.media.MediaRecorder
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -48,6 +50,12 @@ class StudioViewModel @Inject constructor(
         private set
 
     var voiceSampleRemoteUrl by mutableStateOf<String?>(null)
+        private set
+
+    var isRecording by mutableStateOf(false)
+        private set
+
+    var recordedFileUri by mutableStateOf<String?>(null)
         private set
 
     var clonedVoiceUrl by mutableStateOf<String?>(null)
@@ -203,10 +211,51 @@ class StudioViewModel @Inject constructor(
         }
     }
 
+    private var recorder: MediaRecorder? = null
+
+    fun startRecording() {
+        if (isRecording) return
+
+        val file = File(context.cacheDir, "recording_${System.currentTimeMillis()}.m4a")
+        recorder = MediaRecorder().apply {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            setOutputFile(file.absolutePath)
+            try {
+                prepare()
+                start()
+                isRecording = true
+                recordedFileUri = Uri.fromFile(file).toString()
+                statusMessage = "Recording..."
+            } catch (t: Throwable) {
+                statusMessage = "Failed to start recording: ${t.message}"
+                release()
+                recorder = null
+            }
+        }
+    }
+
+    fun stopRecording() {
+        if (!isRecording) return
+        try {
+            recorder?.apply {
+                stop()
+                release()
+            }
+            statusMessage = "Recording stopped."
+        } catch (t: Throwable) {
+            statusMessage = "Failed to stop recording: ${t.message}"
+        } finally {
+            recorder = null
+            isRecording = false
+        }
+    }
+
     fun cloneVoiceSample() {
-        val sampleUrl = voiceSampleRemoteUrl ?: voiceSampleLocalUri
+        val sampleUrl = voiceSampleRemoteUrl ?: recordedFileUri ?: voiceSampleLocalUri
         if (sampleUrl.isNullOrBlank()) {
-            statusMessage = "Provide a voice sample (URL or uploaded file) to clone."
+            statusMessage = "Provide a voice sample (URL/file) to clone."
             return
         }
 
@@ -242,7 +291,8 @@ class StudioViewModel @Inject constructor(
             voiceSampleLocalUri = uriString
 
             val bytes = try {
-                context.contentResolver.openInputStream(android.net.Uri.parse(uriString))?.use { it.readBytes() }
+                val uri = Uri.parse(uriString)
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             } catch (t: Throwable) {
                 null
             }

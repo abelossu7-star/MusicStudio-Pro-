@@ -33,6 +33,8 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
     val ttsText = viewModel.ttsText
     val voiceSampleLocalUri = viewModel.voiceSampleLocalUri
     val voiceSampleRemoteUrl = viewModel.voiceSampleRemoteUrl
+    val recordedFileUri = viewModel.recordedFileUri
+    val isRecording = viewModel.isRecording
     val clonedVoiceUrl = viewModel.clonedVoiceUrl
     val statusMessage = viewModel.statusMessage
     val isLoading = viewModel.isLoading
@@ -109,6 +111,29 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
             uri?.let { viewModel.uploadVoiceSample(it.toString()) }
         }
 
+        Text(text = "Record a voice sample")
+        Button(
+            onClick = {
+                if (isRecording) viewModel.stopRecording() else viewModel.startRecording()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(text = if (isRecording) "Stop Recording" else "Start Recording")
+        }
+
+        recordedFileUri?.let {
+            Text(text = "Recorded file: $it")
+            Button(
+                onClick = { viewModel.uploadVoiceSample(it) },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Text(text = "Upload Recording")
+            }
+        }
+
+        Spacer(modifier = Modifier.size(8.dp))
+
+        Text(text = "Voice cloning")
         Button(onClick = { pickAudioLauncher.launch("audio/*") }, modifier = Modifier.fillMaxWidth()) {
             Text(text = "Pick voice sample")
         }
