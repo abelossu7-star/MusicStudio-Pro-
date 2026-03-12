@@ -6,19 +6,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.musicstudio.pro.data.repository.SupabaseRepository
 import com.musicstudio.pro.services.ai.AIService
 import com.musicstudio.pro.services.audio.AudioPlayerService
 import com.musicstudio.pro.services.elevenlabs.ElevenLabsService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
 class StudioViewModel @Inject constructor(
     private val aiService: AIService,
     private val elevenLabsService: ElevenLabsService,
+    private val supabaseRepository: SupabaseRepository,
     private val audioPlayerService: AudioPlayerService,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -98,9 +104,15 @@ class StudioViewModel @Inject constructor(
         beatUrl?.let { audioPlayerService.play(it) }
     }
 
-    fun synthesizeVoice() {
-        if (voiceId.isBlank() || ttsText.isBlank()) {
-            statusMessage = "Enter a voice ID and the text to synthesize."
+    fun generateSong() {
+        if (prompt.isBlank()) {
+            statusMessage = "Enter a prompt to generate a song."
+            return
+        }
+
+        val userId = supabaseRepository.currentUserId()
+        if (userId.isNullOrBlank()) {
+            statusMessage = "User not signed in." 
             return
         }
 
@@ -108,31 +120,94 @@ class StudioViewModel @Inject constructor(
             isLoading = true
             statusMessage = null
 
-            val bytes = try {
-                elevenLabsService.synthesizeSpeech(voiceId, ttsText)
+            // Generate lyrics + beat
+            val generatedLyrics = try {
+                aiService.generateLyrics(prompt)
             } catch (t: Throwable) {
-                statusMessage = "Failed to synthesize voice: ${t.message}"
+                statusMessage = "Failed to generate lyrics: ${t.message}"
+                isLoading = false
+                return@launch
+            }
+
+            val generatedBeatUrl = try {
+                aiService.generateBeat(prompt)
+            } catch (t: Throwable) {
+                statusMessage = "Failed to generate beat: ${t.message}"
+                isLoading = false
+                return@launch
+            }
+
+            // Download beat and upload to Supabase
+            val beatUploadUrl = downloadAndUploadFile(
+                sourceUrl = generatedBeatUrl,
+                bucket = "ai_generated_music",
+                path = "beats/${UUID.randomUUID()}.mp3"
+            )
+
+            if (beatUploadUrl == null) {
+                statusMessage = "Failed to upload generated beat."
+                isLoading = false
+                return@launch
+            }
+
+            // Synthesize vocals and upload
+            // Optionally synthesize vocals if user provided voice fields.
+            val voiceUrl = if (voiceId.isNotBlank() && ttsText.isNotBlank()) {
+                val voiceBytes = try {
+                    elevenLabsService.synthesizeSpeech(voiceId, ttsText)
+                } catch (_: Throwable) {
+                    null
+                }
+
+                voiceBytes?.takeIf { it.isNotEmpty() }?.let {
+                    uploadBytesToSupabase(it, "ai_generated_music", "vocals/${UUID.randomUUID()}.mp3")
+                }
+            } else {
                 null
             }
 
-            if (bytes == null || bytes.isEmpty()) {
-                statusMessage = statusMessage ?: "No audio returned."
-                isLoading = false
-                return@launch
+            val audioUrl = voiceUrl ?: beatUploadUrl
+
+            // Create song record
+            val songResult = supabaseRepository.createSong(
+                userId = userId,
+                title = prompt.takeIf { it.isNotBlank() } ?: "AI Song",
+                description = generatedLyrics,
+                audioUrl = audioUrl
+            ).firstOrNull()
+
+            songResult?.onSuccess {
+                statusMessage = "Song created: ${it.audioUrl}"
+            }?.onFailure {
+                statusMessage = "Failed to save song metadata: ${it.message}"
             }
 
-            val fileName = "elevenlabs_tts_${System.currentTimeMillis()}.mp3"
-            val file = writeBytesToCache(bytes, fileName)
-
-            if (file == null) {
-                statusMessage = "Unable to write audio file."
-                isLoading = false
-                return@launch
-            }
-
-            audioPlayerService.play(file.toURI().toString())
-            statusMessage = "Playing synthesized audio."
             isLoading = false
+        }
+    }
+
+    private suspend fun downloadAndUploadFile(sourceUrl: String, bucket: String, path: String): String? {
+        return try {
+            val bytes = downloadUrl(sourceUrl)
+            bytes?.let { uploadBytesToSupabase(it, bucket, path) }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private suspend fun uploadBytesToSupabase(bytes: ByteArray, bucket: String, path: String): String? {
+        val result = supabaseRepository.uploadFile(bucket, path, bytes).firstOrNull()
+        return result?.getOrNull()
+    }
+
+    private suspend fun downloadUrl(url: String): ByteArray? {
+        return try {
+            val request = Request.Builder().url(url).get().build()
+            val response = OkHttpClient().newCall(request).execute()
+            if (!response.isSuccessful) return null
+            response.body?.bytes()
+        } catch (_: Throwable) {
+            null
         }
     }
 

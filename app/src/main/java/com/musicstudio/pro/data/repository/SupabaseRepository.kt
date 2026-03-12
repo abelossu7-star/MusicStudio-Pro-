@@ -151,6 +151,37 @@ class SupabaseRepository(private val service: SupabaseService) {
         }
     }
 
+    fun createSong(
+        userId: String,
+        title: String,
+        description: String?,
+        audioUrl: String,
+        genre: String? = null,
+        mood: String? = null,
+        coverImage: String? = null
+    ): Flow<Result<Song>> = flow {
+        try {
+            val payload = mapOf(
+                "user_id" to userId,
+                "title" to title,
+                "description" to description,
+                "audio_url" to audioUrl,
+                "genre" to genre,
+                "mood" to mood,
+                "cover_image" to coverImage
+            ).filterValues { it != null }
+
+            val response = service.database.from("songs").insert(payload).single().execute()
+            val song = response.decode<Song>()
+            emit(Result.success(song))
+        } catch (e: Exception) {
+            AppLog.e("createSong", e)
+            emit(Result.failure(e))
+        }
+    }
+
+    fun currentUserId(): String? = service.auth.session?.user?.id
+
     fun fetchUser(userId: String): Flow<Result<User>> = flow {
         try {
             val response = service.database.from("users").select("*").eq("id", userId).single().execute()

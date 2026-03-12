@@ -56,6 +56,10 @@ fun StudioScreen(viewModel: StudioViewModel = hiltViewModel()) {
             }
         }
 
+        Button(onClick = viewModel::generateSong, modifier = Modifier.fillMaxWidth()) {
+            Text(text = "Generate Song")
+        }
+
         lyrics?.let {
             Text(text = "Lyrics:\n$it")
         }
